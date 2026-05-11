@@ -1,0 +1,176 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+// 任务结构体
+typedef struct Task {
+    void (*function)(void *);
+    void *argument;
+    struct Task *next;
+} Task;
+
+// 线程池结构体
+typedef struct ThreadPool {
+    pthread_mutex_t lock;
+    pthread_cond_t notify;
+    pthread_t *threads;
+    Task *task_queue_head;
+    Task *task_queue_tail;
+    int thread_count;
+    int shutdown;
+} ThreadPool;
+
+// 工作线程逻辑
+void *thread_pool_worker(void *arg) {
+    ThreadPool *pool = (ThreadPool *)arg;
+
+    while (1) {
+        pthread_mutex_lock(&pool->lock);
+
+        // TODO 1: 处理虚假唤醒
+        while (pool->task_queue_head == NULL && !pool->shutdown) {
+            pthread_cond_wait(&pool->notify, &pool->lock);
+        }
+
+        // TODO 2: 检查退出条件
+        if (pool->shutdown && pool->task_queue_head == NULL) {
+            pthread_mutex_unlock(&pool->lock);
+            pthread_exit(NULL);
+        }
+
+        // TODO 3: 获取任务
+        Task *task = NULL;
+        if (pool->task_queue_head != NULL) {
+            task = pool->task_queue_head;
+            pool->task_queue_head = task->next;
+            if (pool->task_queue_head == NULL) {
+                pool->task_queue_tail = NULL;
+            }
+        }
+
+        pthread_mutex_unlock(&pool->lock);
+
+        // 执行任务
+        if (task != NULL) {
+            task->function(task->argument);
+            free(task);
+        }
+    }
+
+    return NULL;
+}
+
+// 提交任务
+int thread_pool_submit(ThreadPool *pool, void (*function)(void *), void *argument) {
+    if (pool == NULL || function == NULL) {
+        return -1;
+    }
+
+    Task *task = (Task *)malloc(sizeof(Task));
+    if (task == NULL) {
+        return -1;
+    }
+
+    task->function = function;
+    task->argument = argument;
+    task->next = NULL;
+
+    pthread_mutex_lock(&pool->lock);
+
+    if (pool->shutdown) {
+        pthread_mutex_unlock(&pool->lock);
+        free(task);
+        return -1;
+    }
+
+    if (pool->task_queue_tail == NULL) {
+        pool->task_queue_head = task;
+        pool->task_queue_tail = task;
+    } else {
+        pool->task_queue_tail->next = task;
+        pool->task_queue_tail = task;
+    }
+
+    pthread_cond_signal(&pool->notify);
+    pthread_mutex_unlock(&pool->lock);
+
+    return 0;
+}
+
+// 销毁线程池
+void thread_pool_destroy(ThreadPool *pool) {
+    if (pool == NULL) {
+        return;
+    }
+
+    pthread_mutex_lock(&pool->lock);
+    if (pool->shutdown) {
+        pthread_mutex_unlock(&pool->lock);
+        return;
+    }
+
+    pool->shutdown = 1;
+    pthread_cond_broadcast(&pool->notify);
+    pthread_mutex_unlock(&pool->lock);
+
+    for (int i = 0; i < pool->thread_count; i++) {
+        pthread_join(pool->threads[i], NULL);
+    }
+
+    pthread_mutex_destroy(&pool->lock);
+    pthread_cond_destroy(&pool->notify);
+    free(pool->threads);
+    free(pool);
+}
+
+// ================= 测试任务 =================
+void my_task(void *arg) {
+    int id = *(int *)arg;
+    printf("Thread %lu 正在执行任务 %d...\n", (unsigned long)pthread_self(), id);
+    usleep(100000); // 模拟耗时 0.1 秒的任务
+    free(arg); // 释放参数内存
+}
+
+// ================= main：基础运行验证入口 =================
+int main() {
+    ThreadPool *pool = (ThreadPool *)malloc(sizeof(ThreadPool));
+    if (pool == NULL) {
+        return 1;
+    }
+
+    pool->thread_count = 4;
+    pool->shutdown = 0;
+    pool->task_queue_head = NULL;
+    pool->task_queue_tail = NULL;
+
+    pthread_mutex_init(&pool->lock, NULL);
+    pthread_cond_init(&pool->notify, NULL);
+
+    pool->threads = (pthread_t *)malloc(sizeof(pthread_t) * pool->thread_count);
+    if (pool->threads == NULL) {
+        pthread_mutex_destroy(&pool->lock);
+        pthread_cond_destroy(&pool->notify);
+        free(pool);
+        return 1;
+    }
+
+    for (int i = 0; i < pool->thread_count; i++) {
+        pthread_create(&pool->threads[i], NULL, thread_pool_worker, (void *)pool);
+    }
+
+    printf("=== 线程池启动，投入 15 个任务 ===\n");
+    for (int i = 1; i <= 15; i++) {
+        int *arg = (int *)malloc(sizeof(int));
+        if (arg == NULL) {
+            continue;
+        }
+        *arg = i;
+        if (thread_pool_submit(pool, my_task, arg) != 0) {
+            free(arg);
+        }
+    }
+
+    thread_pool_destroy(pool);
+    return 0;
+}
