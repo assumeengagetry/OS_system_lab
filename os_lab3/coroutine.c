@@ -6,7 +6,7 @@
 #define MAX_COROUTINES 10
 #define STACK_SIZE (1024 * 64)
 
-typedef enum { FREE, RUNNABLE, RUNNING, SUSPEND, SIGNALRM } State;
+typedef enum { FREE, RUNNABLE, RUNNING, SUSPEND } State;
 
 typedef struct {
     ucontext_t ctx;           // 保存该协程的寄存器现场、栈信息和返回去向
@@ -19,21 +19,27 @@ struct Scheduler {
     ucontext_t main_ctx;                      // 主调度器上下文，yield/结束后都会切回这里
     Coroutine coroutines[MAX_COROUTINES];     // 协程槽位表
     int current_id;                           // 当前正在运行的协程 ID，-1 表示当前在 main_ctx 中
-    int in_scheduler; 
+    int in_scheduler;                         // 现在我们需要标记正在进行scheduler,就是加一个临界区的锁
 } scheduler;
 
 void haddle_preemptive_scheduling(int sig){
     int id = scheduler.current_id;
-    if(id == -1 || scheduler.in_scheduler[id].state == SUSPEND){
-        
-        
+    if(scheduler.in_scheduler || scheduler.current_id == -1 ){
+    return;
+    }
+    Coroutine *co = &scheduler.coroutines[id];
+    if (co-> state != RUNNING)
+    {
+        return;
     }
 
+    printf("[SIGALRM] 抢占 Haddle preemptive scheduling\n");
+    os->state = RUNNABLE;
+    scheduler.current_id = -1;
+    swapcontext(&co->ctx, &scheduler.main_ctx);
 
 
-
-
-    swapcontext(1 2);
+    //swapcontext(1 2);
 }
 
 void scheduler_init() {
@@ -42,6 +48,11 @@ void scheduler_init() {
     for (int i = 0; i < MAX_COROUTINES; i++) {
         scheduler.coroutines[i].state = FREE;
     }
+    struct sigaction sa;
+    sa.sa_handler = haddle_preemptive_scheduling;
+    sa.sa
+
+
 }
 
 void coroutine_wrapper() {
