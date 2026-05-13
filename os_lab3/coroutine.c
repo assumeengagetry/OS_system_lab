@@ -2,7 +2,7 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include <ucontext.h>
-
+#include <signal.h>
 #define MAX_COROUTINES 10
 #define STACK_SIZE (1024 * 64)
 
@@ -34,8 +34,9 @@ void haddle_preemptive_scheduling(int sig){
     }
 
     printf("[SIGALRM] 抢占 Haddle preemptive scheduling\n");
-    os->state = RUNNABLE;
+    co->state = RUNNABLE;
     scheduler.current_id = -1;
+
     swapcontext(&co->ctx, &scheduler.main_ctx);
 
 
@@ -44,14 +45,24 @@ void haddle_preemptive_scheduling(int sig){
 
 void scheduler_init() {
     scheduler.current_id = -1;
+    scheduler.in_scheduler = 1;
     // ★ TODO 1：将所有协程状态初始化为 FREE
     for (int i = 0; i < MAX_COROUTINES; i++) {
         scheduler.coroutines[i].state = FREE;
     }
     struct sigaction sa;
     sa.sa_handler = haddle_preemptive_scheduling;
-    sa.sa
+    sa.sa_flags = SA_RESTART;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGALRM, &sa, NULL);
 
+
+    struct itimerval itv;
+    itv.it_interval.tv_sec = 0;
+    itv.it_interval.tv_usec = 1000;
+    itv.it_value.tv_sec = 0;
+    itv.it_value.tv_usec = 1000;
+    setitimer(ITIMER_REAL, &itv, NULL);
 
 }
 
@@ -111,9 +122,10 @@ void coroutine_resume(int id) {
 
     co->state = RUNNING;
     scheduler.current_id = id;
-
+    scheduler.in_scheduler = 0;
     // ★ TODO 10：使用 swapcontext 保存当前(main)上下文并切换到协程上下文
     swapcontext(&scheduler.main_ctx, &co->ctx);
+    scheduler.in_scheduler = 1;
 }
 
 void coroutine_yield() {
@@ -143,16 +155,34 @@ void long_task() {
     printf("[Long Task] all batches done\n");
 }
 
+void greedy_task()
+{
+    printf("[Greedy Task]\n");
+    long long sum = 0;
+    for (int batch = 0; batch<= 5 ; batch++)
+    {
+
+        for (int i = 0; i < 1000000; i++)
+        {
+            sum += i % 7;
+        }
+        printf("[Greedy Task] sum = %lld\n", sum);
+
+    }
+    printf("[Greedy Task] all batches done\n");
+}
+
 void monitor_task() {
     for (int round = 1; round <= 5; round++) {
         printf("[Monitor] scheduler is still responsive, round %d\n", round);
         coroutine_yield();
-    }
+    };
 }
+
 
 int main() {
     scheduler_init();
-    coroutine_spawn(long_task);
+    coroutine_spawn(greedy_task);
     coroutine_spawn(monitor_task);
 
     while (1) {
