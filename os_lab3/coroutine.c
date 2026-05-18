@@ -33,7 +33,7 @@ void haddle_preemptive_scheduling(int sig){
         return;
     }
 
-    printf("[SIGALRM] 抢占 Haddle preemptive scheduling\n");
+//    printf("[SIGALRM] 抢占 Haddle preemptive scheduling\n");
     co->state = RUNNABLE;
     scheduler.current_id = -1;
 
@@ -59,7 +59,7 @@ void scheduler_init() {
     itv.it_interval.tv_sec = 0;
     itv.it_interval.tv_usec = 10000;
     itv.it_value.tv_sec = 0;
-    itv.it_value.tv_usec = 10000;
+    itv.it_value.tv_usec = 50000;
     setitimer(ITIMER_REAL, &itv, NULL);
 
 }
@@ -160,10 +160,11 @@ void greedy_task()
     for (int batch = 0; batch<= 5 ; batch++)
     {
 
-        for (int i = 0; i < 1000000; i++)
+        for (int i = 0; i < 10000000; i++)
         {
             sum += i % 7;
         }
+        
         printf("[Greedy Task] sum = %lld\n", sum);
 
     }
@@ -171,10 +172,14 @@ void greedy_task()
 }
 
 void monitor_task() {
+    long long sum = 0;
     for (int round = 1; round <= 5; round++) {
-        printf("[Monitor] scheduler is still responsive, round %d\n", round);
-        coroutine_yield();
-    };
+       for (int i = 0; i < 10000000; i++)
+        {
+        sum += i%7;
+        }
+printf("[Monitor] scheduler is still responsive, round %d\n", round);  //  coroutine_yield();
+           } ;
 }
 
 

@@ -167,8 +167,7 @@ void coroutine_sleep(int seconds){
     co->state = SLEEPING;
     scheduler.current_id = -1;
     
-        printf("[Sleep]  协程 %d 睡眠 %d 秒，唤醒时刻 = %ld\n",
-           id, seconds, (long)co->wake_up_time);
+        printf("[Sleep]  协程 %d 睡眠 %d 秒，唤醒时刻 = %ld\n",  id, seconds, (long)co->wake_up_time);
 
 swapcontext(&co->ctx, &scheduler.main_ctx);
 
