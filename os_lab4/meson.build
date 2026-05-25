@@ -1,4 +1,4 @@
-  project('os_lab4', 'cpp',
+  project('os_lab4', 'c',
   version : '1.0',
   default_options : [
     'c_std=c11',
@@ -7,8 +7,7 @@
   ],
 )
 
-cc = meson.get_compiler('cpp')
-fs = import('fs')
+ fs = import('fs')
 
-shared_library('hook_malloc', ['mm.cpp', 'hook_malloc.cpp'],
+shared_library('hook_malloc', ['mm.c', 'hook_malloc.c'],
                dependencies: dependency('threads'))
