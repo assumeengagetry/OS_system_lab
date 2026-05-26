@@ -1,4 +1,5 @@
-#define _DEFAULT_SOURCE
+#define _GNU_SOURCE
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -24,8 +25,21 @@ block_meta *find_free_block(block_meta **last, size_t size) {
   return current;
 }
 
+block_meta* split_block(block_meta* block, size_t size)
+{
+  if (block->size >= size + META_SIZE + 1)
+  {
+    block_meta* new_block = (block_meta *)((char*)(block + 1) + size);
+    new_block->size = block->size - size - META_SIZE;
+    new_block->free = 1;
+    new_block->next = block->next;
+    block->size = size;
+    block->next = new_block;
+
+  };
+}
 /* ===== 2. 向 OS 申请新堆空间 ===== */
-block_meta *request_space(block_meta *last, size_t size) {
+void *request_space(block_meta *last, size_t size) {
   block_meta *block;
   /* TODO 2: sbrk(0) 获取当前堆顶作为新块起始地址 */
   block = (block_meta *)sbrk(0);
@@ -63,6 +77,7 @@ void *my_malloc(size_t size) {
       if (!block)
         return NULL;
     } else {
+      split_block(block, size);
       block->free = 0; /* 标记为占用 */
     }
   }
@@ -78,3 +93,9 @@ void my_free(void *ptr) {
   block_meta *block = (block_meta *)ptr - 1;
   block->free = 1;
 }
+
+
+
+
+
+
