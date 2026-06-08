@@ -30,7 +30,7 @@ static char *vm_base;
 static page_entry_t page_table[NUM_VPAGES];
 static int resident_count;
 static unsigned long clock_tick;
-static int clock_hand;
+static int clock_circle;
 static int swap_fd = -1;
 
 static void init_vmem(void);
@@ -199,18 +199,18 @@ static void *page_start(int page_no) {
 
 static int choose_victim_second_chance(void) {
     while (1) {
-        if (page_table[clock_hand].state == PAGE_RESIDENT) {
-            if (page_table[clock_hand].referenced) {
-                printf("[second chance] page %d referenced=1, clear and skip\n", clock_hand);
-                page_table[clock_hand].referenced = 0;
-                clock_hand = (clock_hand + 1) % NUM_VPAGES;
+        if (page_table[clock_circle].state == PAGE_RESIDENT) {
+            if (page_table[clock_circle].referenced) {
+                printf("[second chance] page %d referenced=1, clear and skip\n", clock_circle);
+                page_table[clock_circle].referenced = 0;
+                clock_circle= (clock_circle + 1) % NUM_VPAGES;
             } else {
-                int victim = clock_hand;
-                clock_hand = (clock_hand + 1) % NUM_VPAGES;
+                int victim = clock_circle;
+                clock_circle= (clock_circle + 1) % NUM_VPAGES;
                 return victim;
             }
         } else {
-            clock_hand = (clock_hand + 1) % NUM_VPAGES;
+            clock_circle = (clock_circle + 1) % NUM_VPAGES;
         }
     }
 }

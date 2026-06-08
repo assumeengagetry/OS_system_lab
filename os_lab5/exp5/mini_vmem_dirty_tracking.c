@@ -271,8 +271,8 @@ static void full_read(int fd, void *buf, size_t nbyte) {
             exit(1);
         }
         if (n == 0) {
-            fprintf(stderr, "unexpected EOF while reading swap\n");
-            exit(1);
+          fprintf(stderr, "unexpected EOF while reading swap\n");
+          exit(1);
         }
         done += (size_t)n;
     }
